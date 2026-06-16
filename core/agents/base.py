@@ -31,7 +31,7 @@ class Agent:
             self._model,
             self._tokenizer,
             prompt=prompt,
-            max_tokens=300,
+            max_tokens=500,
             sampler=make_sampler(temp=0.75),
             verbose=False,
         )
