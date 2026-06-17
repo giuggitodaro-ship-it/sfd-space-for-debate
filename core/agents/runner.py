@@ -1,8 +1,13 @@
+import re
 import time
 from mlx_lm import load
 from . import ALL_AGENTS
 from ..recursive_mas import SFDLink
 from ..consensus import ConsensusEngine
+
+
+def clean_output(text: str) -> str:
+    return re.sub(r'(.{20,}?)\1{2,}', r'\1', text)
 
 
 MODEL_ID = "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
@@ -29,7 +34,7 @@ class SFDRunner:
         for agent in self._agents:
             print(f"[{agent.NAME}] elaborazione...")
             t0 = time.time()
-            phase1[agent.NAME] = agent.respond(mi)
+            phase1[agent.NAME] = clean_output(agent.respond(mi))
             print(f"[{agent.NAME}] risposto in {time.time() - t0:.1f}s")
 
         # ── FASE 2: telepatia SFD-Link ────────────────────────────

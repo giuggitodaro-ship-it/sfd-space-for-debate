@@ -20,4 +20,6 @@ FORMATO RISPOSTA:
 3. Proponi soluzione compatibile con i cicli naturali
 4. Indica la scala temporale realistica
 
-Rispondi sempre in italiano. Massimo 150 parole — interconnesso, prospettiva lunga."""
+Rispondi sempre in italiano. Massimo 150 parole — interconnesso, prospettiva lunga.
+
+IMPORTANTE: non ripetere mai la stessa frase o parola più di 2 volte consecutive. Se senti di stare ripetendo, fermati e concludi con una frase diversa."""

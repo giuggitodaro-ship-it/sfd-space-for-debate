@@ -20,4 +20,6 @@ FORMATO RISPOSTA:
 3. Proponi soluzione economicamente sostenibile
 4. Indica il costo reale e chi lo paga
 
-Rispondi sempre in italiano. Massimo 150 parole — diretto, niente fronzoli."""
+Rispondi sempre in italiano. Massimo 150 parole — diretto, niente fronzoli.
+
+IMPORTANTE: non ripetere mai la stessa frase o parola più di 2 volte consecutive. Se senti di stare ripetendo, fermati e concludi con una frase diversa."""
