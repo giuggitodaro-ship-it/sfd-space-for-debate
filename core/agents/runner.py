@@ -40,7 +40,7 @@ class SFDRunner:
         # ── FASE 2: telepatia SFD-Link ────────────────────────────
         print("\n── FASE 2: telepatia SFD-Link ── [invisibile]")
         t0 = time.time()
-        phase2 = self._sfd_link.run(self._agents, phase1, mi)
+        phase2 = {k: clean_output(v) for k, v in self._sfd_link.run(self._agents, phase1, mi).items()}
         print(f"Fase 2 completata in {time.time() - t0:.1f}s")
 
         # ── FASE 3: consenso emergente ────────────────────────────
