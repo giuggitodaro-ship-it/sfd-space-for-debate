@@ -1,8 +1,8 @@
 import time
-import mlx.core as mx
 from mlx_lm import load
 from . import ALL_AGENTS
 from ..recursive_mas import SFDLink
+from ..consensus import ConsensusEngine
 
 
 MODEL_ID = "mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
@@ -16,6 +16,7 @@ class SFDRunner:
         print(f"Modello caricato in {time.time() - t0:.1f}s")
         self._agents = [cls(self._model, self._tokenizer) for cls in ALL_AGENTS]
         self._sfd_link = SFDLink(self._model, self._tokenizer)
+        self._consensus = ConsensusEngine(self._sfd_link)
 
     def run(self, mi: str) -> dict:
         print(f"\n{'='*60}")
@@ -39,98 +40,77 @@ class SFDRunner:
 
         # ── FASE 3: consenso emergente ────────────────────────────
         print("\n── FASE 3: consenso emergente ──")
-        consensus = self._compute_consensus(phase2)
-
-        return {
-            "risposte_fase1": phase1,
-            "risposte_fase2": phase2,
-            "consenso": consensus,
-        }
-
-    def _compute_consensus(self, phase2_responses: dict) -> dict:
-        names = list(phase2_responses.keys())
-        n = len(names)
-
-        embeds = {
-            name: self._sfd_link.extract_hidden(resp)
-            for name, resp in phase2_responses.items()
-        }
-
-        def cosine_sim(a, b):
-            return float(mx.sum(a * b) / (mx.sqrt(mx.sum(a * a)) * mx.sqrt(mx.sum(b * b))))
-
-        sims = {
-            (ni, nj): cosine_sim(embeds[ni], embeds[nj])
-            for ni in names
-            for nj in names
-            if ni != nj
-        }
-
-        centrality = {
-            name: sum(sims[(name, other)] for other in names if other != name) / (n - 1)
-            for name in names
-        }
-
-        seed = max(centrality, key=centrality.get)
-        threshold = 0.80
-
-        convergenti = [
-            name for name in names
-            if name == seed or sims[(seed, name)] > threshold
-        ]
-        divergenti = [name for name in names if name not in convergenti]
-
-        n_conv = len(convergenti)
-        avg_sim = (
-            sum(sims[(ni, nj)] for ni in convergenti for nj in convergenti if ni != nj)
-            / (n_conv * (n_conv - 1))
-            if n_conv > 1 else 1.0
-        )
-
-        return {
-            "voto": f"{n_conv}/7",
-            "convergenti": convergenti,
-            "divergenti": divergenti,
-            "avg_similarity": round(avg_sim, 4),
-            "sintesi": phase2_responses[seed],
-        }
+        return self._consensus.build_output(phase1, phase2, mi)
 
 
-def main():
-    runner = SFDRunner()
-    mi = "Come potremmo ridurre la povertà in Italia?"
-    result = runner.run(mi)
-
+def _print_result(result: dict):
     print("\n" + "="*60)
     print("FASE 1 — RISPOSTE INDIVIDUALI")
     print("="*60)
-    for name, resp in result["risposte_fase1"].items():
-        print(f"\n{'—'*40}")
-        print(f"  {name.upper()}")
-        print(f"{'—'*40}")
+    for name, resp in result["phase1_responses"].items():
+        print(f"\n{'—'*40}  {name.upper()}  {'—'*40}")
         print(resp)
 
     print("\n" + "="*60)
     print("FASE 2 — RISPOSTE DOPO TELEPATIA SFD-Link")
     print("="*60)
-    for name, resp in result["risposte_fase2"].items():
-        print(f"\n{'—'*40}")
-        print(f"  {name.upper()} [raffinato]")
-        print(f"{'—'*40}")
+    for name, resp in result["phase2_responses"].items():
+        print(f"\n{'—'*40}  {name.upper()} [raffinato]  {'—'*40}")
         print(resp)
 
     print("\n" + "="*60)
     print("FASE 3 — CONSENSO EMERGENTE")
     print("="*60)
-    c = result["consenso"]
-    print(f"\nVoto:         {c['voto']}")
-    print(f"Convergenti:  {', '.join(c['convergenti'])}")
-    print(f"Divergenti:   {', '.join(c['divergenti']) if c['divergenti'] else '—'}")
-    print(f"Avg sim:      {c['avg_similarity']}")
-    print(f"\nSINTESI (agente più centrale):")
-    print(c["sintesi"])
+    print(f"\nVoto:                {result['voto']}")
+    print(f"Unanimità:           {result['unanimita']}")
+    print(f"Avg sim globale:     {result['avg_similarity_globale']}")
 
-    return result
+    print("\n── Matrice similarità ──")
+    names = list(result["similarity_matrix"].keys())
+    header = f"{'':12}" + "".join(f"{n:10}" for n in names)
+    print(header)
+    for ni in names:
+        row = f"{ni:12}" + "".join(
+            f"{result['similarity_matrix'][ni][nj]:.4f}    " for nj in names
+        )
+        print(row)
+
+    print(f"\n── Gruppi emergenti ({len(result['gruppi'])}) ──")
+    for i, g in enumerate(result["gruppi"], 1):
+        label = "MAGGIORITARIO" if i == 1 and len(g["ai"]) > 1 else (
+            "SOLITARIO" if len(g["ai"]) == 1 else f"GRUPPO {i}"
+        )
+        print(f"\n[{label}]  AI: {', '.join(g['ai'])}  |  sim_media: {g['similarity_media']}")
+        print(f"Sintesi:\n{g['sintesi']}")
+
+
+def main():
+    runner = SFDRunner()
+
+    mis = [
+        "Come potremmo ridurre la povertà in Italia?",
+        "Dovremmo colonizzare Marte entro il 2050?",
+    ]
+
+    results = []
+    for mi in mis:
+        result = runner.run(mi)
+        _print_result(result)
+        results.append(result)
+
+    print("\n" + "="*60)
+    print("CONFRONTO DINAMICO TRA I DUE M.I.")
+    print("="*60)
+    for r in results:
+        gruppi_str = " | ".join(
+            f"{'+'.join(g['ai'])}={g['similarity_media']}"
+            for g in r["gruppi"]
+        )
+        print(f"\nM.I.: {r['mi'][:50]}")
+        print(f"  Voto: {r['voto']}  |  Unanimità: {r['unanimita']}  |  Avg sim: {r['avg_similarity_globale']}")
+        print(f"  Gruppi: {gruppi_str}")
+
+    return results
 
 
 if __name__ == "__main__":
